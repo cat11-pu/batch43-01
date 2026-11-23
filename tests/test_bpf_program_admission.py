@@ -19,7 +19,7 @@ def _program(program_id="p1", **overrides):
         "type": "sched_cls",
         "tenant": "tenant-a",
         "helpers": ["skb_load_bytes"],
-        "pin_path": "/sys/fs/bpf/tenant-a/map%d" % program_id,
+        "pin_path": "/sys/fs/bpf/tenant-a/map%s" % program_id,
         "sleepable": False,
         "tail_calls": [],
         "license": "GPL",

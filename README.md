@@ -7,6 +7,15 @@
 python -m pytest tests -q
 ```
 
+## 修复要点
+
+- `grant` 按 `(角色, 阵营, source)` 幂等，重复提交返回 `already_granted` 且不写第二条流水；加成按加法叠加（`amount * (multiplier + bonus_pct/100)`），避免双倍 × 公会加成变成四倍。
+- 所有声望变动都经过阵营上下限钳制，超出部分进入返回值和流水的 `discarded` 字段。
+- `switch_faction` 在同一把锁内原子清零对立阵营声望，商店权限由实时声望动态推导，掉回阈值以下或转阵营后自动失效；已购物品在 `purchases()` 中标记 `revoked`。
+- 每周衰减按 `(角色, 阵营, week)` 幂等；角色级数据互相隔离；跨服结算只入账显式指定的阵营。
+- 流水追加写、带 `actor/reason/before/after`，支持按角色和阵营过滤；`save/load` 落盘 JSON，`snapshot/restore` 支持进程内重建，重启后流水与幂等状态完整恢复。
+- 所有公开方法由 `RLock` 保护，并发重复提交也只会结算一次；非法操作抛出带 `code` 的 `ReputeError`。
+
 ## 平台字段
 
 所属领域：安全

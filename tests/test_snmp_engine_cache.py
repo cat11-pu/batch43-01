@@ -3,8 +3,10 @@ import pytest
 import snmp_engine_cache
 
 
-def _discover(cache, engine_id="eng-1", user="alice", engine_time=1000):
-    return cache.discover(engine_id, 5, engine_time, user, "198.51.100.10")
+def _discover(cache, engine_id="eng-1", user="alice", engine_time=1000,
+              context=""):
+    return cache.discover(
+        engine_id, 5, engine_time, user, "198.51.100.10", context=context)
 
 
 def _request(**overrides):

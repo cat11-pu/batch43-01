@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import json
 
 import pytest
 
@@ -151,3 +152,68 @@ def test_unknown_request_uri_returns_invalid_request_uri():
     with pytest.raises(par_request_uri_store.ParError) as exc:
         store.authorize("urn:ietf:params:oauth:request_uri:missing", "client-1")
     assert exc.value.code == "invalid_request_uri"
+
+
+def test_consumed_state_survives_restart(tmp_path):
+    state = str(tmp_path / "par.json")
+    store = _store(state_path=state)
+    uri = store.push(_request())
+    code = store.authorize(uri, "client-1", redirect_uri="https://app.example/cb")["code"]
+
+    restarted = _store(state_path=state)
+    assert restarted.pending_count() == 0
+    with pytest.raises(par_request_uri_store.ParError) as exc:
+        restarted.authorize(uri, "client-1", redirect_uri="https://app.example/cb")
+    assert exc.value.code == "invalid_request_uri"
+    assert restarted.exchange(code, "client-1", method="S256")["access_token"].startswith("at-")
+
+
+def test_repeated_parameters_are_rejected():
+    store = _store()
+    request = list(_request().items())
+    request.append(("client_id", "client-2"))
+    with pytest.raises(par_request_uri_store.ParError) as exc:
+        store.push(request)
+    assert exc.value.code == "invalid_request"
+
+
+def test_push_history_and_audit_are_persisted(tmp_path):
+    state = str(tmp_path / "par.json")
+    store = _store(state_path=state)
+    uri = store.push(_request())
+    with pytest.raises(par_request_uri_store.ParError):
+        store.push(_request(), signature_valid=False)
+
+    restarted = _store(state_path=state)
+    records = restarted.pushed_records()
+    assert uri in records
+    assert records[uri]["pushed_request"]["client_id"] == "client-1"
+    assert [entry["result"] for entry in restarted.audit_records()] == [
+        "accepted",
+        "rejected",
+    ]
+
+    with open(state, "r", encoding="utf-8") as state_file:
+        persisted = json.load(state_file)
+    assert uri in persisted["request_uris"]
+    assert len(persisted["audit"]) == 2
+
+
+def test_concurrent_authorize_across_store_instances_issues_one_code(tmp_path):
+    state = str(tmp_path / "par.json")
+    uri = _store(state_path=state).push(_request())
+
+    def authorize(_):
+        try:
+            return _store(state_path=state).authorize(
+                uri, "client-1", redirect_uri="https://app.example/cb"
+            )["code"]
+        except par_request_uri_store.ParError as exc:
+            return exc.code
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        results = list(pool.map(authorize, range(6)))
+
+    successes = [item for item in results if item and item != "invalid_request_uri"]
+    assert len(successes) == 1
+    assert results.count("invalid_request_uri") == 5

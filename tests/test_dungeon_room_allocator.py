@@ -9,9 +9,10 @@ def make(**kwargs):
     return dra.DungeonRoomAllocator(**kwargs)
 
 
-def queued(a, party, size=5, leader=None, now=0):
+def queued(a, party, size=5, leader=None, now=0, difficulty="normal"):
     leader = leader or party + "-leader"
-    return a.enqueue(party, size, leader=leader, now=now)
+    return a.enqueue(party, size, leader=leader, now=now,
+                     difficulty=difficulty)
 
 
 def test_recycled_room_has_no_previous_progress_or_loot():

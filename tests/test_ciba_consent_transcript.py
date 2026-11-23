@@ -5,8 +5,10 @@ import pytest
 import ciba_consent_transcript
 
 
-def _transcript(state_path=None):
-    return ciba_consent_transcript.CibaConsentTranscript(state_path=state_path)
+def _transcript(state_path=None, **kwargs):
+    return ciba_consent_transcript.CibaConsentTranscript(
+        state_path=state_path, **kwargs
+    )
 
 
 def test_poll_and_callback_concurrently_issue_one_token():
